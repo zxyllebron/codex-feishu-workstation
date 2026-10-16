@@ -1,5 +1,13 @@
 # Changelog / 更新记录
 
+## 1.0.1 — 2026-10-16
+
+- Match AskBetter's `English | 简体中文` README navigation with separate language pages.
+- Add a release privacy audit explaining synthetic examples and public GitHub attribution.
+- Application behavior is unchanged.
+
+介绍页采用独立中英文切换，补充发布隐私核对；应用行为不变。
+
 ## 1.0.0 — 2026-10-16
 
 - Initial public release of the local Codex + Feishu workbench and reusable web UI.

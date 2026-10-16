@@ -1,10 +1,12 @@
 # Codex × 飞书个人工作台
 
-[English](README.md) · [安装与 Codex 配置](docs/SETUP.zh-CN.md) · [飞书账号配置](docs/FEISHU.zh-CN.md)
+[English](README.md) | 简体中文
+
+[安装与 Codex 配置](docs/SETUP.zh-CN.md) · [飞书账号配置](docs/FEISHU.zh-CN.md)
 
 一个在自己电脑上运行、由 Codex 驱动的个人网页工作台。保留文字侧边栏、白色主区域和简洁列表，将**工作概览、今日工作、夜间工作、明日预判、记忆与消息**放在同一处。你可以直接复用 UI 和 Python 后端，也可以按自己的习惯修改。
 
-![工作台界面，全部为虚构演示数据](docs/assets/overview.png)
+![工作台界面，全部为虚构演示数据](docs/assets/overview.jpg)
 
 ## 先体验界面
 
@@ -58,7 +60,9 @@ python3 manage.py install-service
 
 ## 数据说明
 
-仓库不包含作者的账号、会话 ID、聊天记录、数据库、登录凭据或私人工作截图。`config.json` 只存非敏感配置，账号凭据由官方 CLI 管理；`data/`、`config.json`、`~/.codex` 和飞书凭据目录不要上传。
+仓库不包含作者的私人飞书/Codex 账号配置、真实会话 ID、聊天记录、数据库、登录凭据或私人工作截图。`config.json` 只存非敏感配置，账号凭据由官方 CLI 管理；`data/`、`config.json`、`~/.codex` 和飞书凭据目录不要上传。
+
+发布文件与公开署名的具体边界见 [发布隐私核对](docs/RELEASE-PRIVACY.md)。
 
 **本机存储不等于离线推理**：整理时会把选取的飞书内容和 Codex 会话片段发送给你登录的 Codex 模型服务。连接企业账号前请确认你有权这样处理数据。边界和限制见 [SECURITY.md](SECURITY.md)。
 

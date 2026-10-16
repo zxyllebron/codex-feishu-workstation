@@ -1,12 +1,12 @@
 # Codex × Feishu Workstation
 
+English | [简体中文](README.zh-CN.md)
+
 **A local personal workspace powered by Codex and your own Feishu account.** A clean, editable web UI for manual todos, inferred intentions, night-work recommendations, forecasts, and searchable memories/messages.
 
-**由 Codex 和你自己的飞书账号驱动的本机个人工作台。** 保留简洁、可定制的网页 UI，将手填待办、工作意向、夜间推荐、明日预判、记忆与消息集中在一起。
+[Setup and Codex configuration](docs/SETUP.md) · [Feishu configuration](docs/FEISHU.md)
 
-[中文完整说明](README.zh-CN.md) · [English setup](docs/SETUP.md) · [中文安装](docs/SETUP.zh-CN.md) · [Feishu configuration](docs/FEISHU.md) · [飞书配置](docs/FEISHU.zh-CN.md)
-
-![Workstation UI — fictional demo data](docs/assets/overview.png)
+![Workstation UI — fictional demo data](docs/assets/overview.jpg)
 
 ## Try the UI immediately
 
@@ -66,7 +66,9 @@ The app runs only on `127.0.0.1`; no public hosting or GitHub Pages backend is p
 
 Local files stay under the configured data directory. When you request or schedule analysis, selected Feishu messages and Codex history excerpts are sent through your authenticated Codex model service. **Local storage does not mean offline inference.** Read [data boundaries and limitations](SECURITY.md) before connecting workplace accounts.
 
-This repository contains source, synthetic test/demo data, and documentation only. It does not contain the author's messages, local databases, account IDs, tokens, screenshots of private work, or Codex authentication files. Never publish your own `data/`, `config.json`, CLI credential stores, or `~/.codex`.
+This repository contains source, synthetic test/demo data, and documentation only. It does not contain the author's messages, local databases, private Feishu account/conversation identifiers, tokens, screenshots of private work, or Codex authentication files. Never publish your own `data/`, `config.json`, CLI credential stores, or `~/.codex`.
+
+See the [release privacy audit](docs/RELEASE-PRIVACY.md) for the included/excluded files and public attribution boundary.
 
 ## Development
 
