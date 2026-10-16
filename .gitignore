@@ -1,0 +1,17 @@
+/data/
+/config.json
+/config.*.local.json
+/dist/
+/.venv/
+__pycache__/
+*.py[cod]
+*.sqlite*
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+*.pem
+*.key
+auth.json
+node_modules/

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#fcfcfc"><title>Workstation · 个人工作台</title><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="#overview" aria-label="workstation"><span>Workstation</span></a>
+    <nav id="nav"></nav>
+    <div class="sidebar-bottom"><a class="sidebar-setting" href="#settings" id="setting-link"></a><div class="profile"><span class="avatar">W</span><div><strong id="profile-name">朋友</strong></div></div></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><div class="header-actions"><label class="search"><input id="global-search" placeholder="搜索…" aria-label="搜索工作、记忆和消息"></label><button id="notifications" class="text-button" aria-label="通知中心">通知</button><span class="header-divider"></span><span class="avatar small-avatar">W</span></div></header>
+    <main id="main"><div class="loading"><span class="spinner"></span>正在连接你的本机工作台…</div></main>
+    <footer><span>WORKSTATION <b>LOCAL</b></span><span id="footer-status">正在同步本机数据</span><span>本机运行</span></footer>
+  </div>
+  <div id="completed-menu" class="context-menu" role="menu" aria-label="条目操作" hidden><button role="menuitem" data-action="item-delete" hidden>删除</button><button role="menuitem" data-action="purge-review">完全删除</button></div>
+  <div id="toast" role="status"></div>
+  <dialog id="detail-dialog"><div class="dialog-head"><span id="dialog-label">工作详情</span><button id="close-dialog" class="icon-button" aria-label="关闭详情">×</button></div><div id="dialog-content"></div></dialog>
+</body></html>

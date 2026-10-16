@@ -1,0 +1,2 @@
+# Runtime uses only Python 3.11+ standard library.
+# Install Codex CLI and the official Feishu CLI separately; see README.md.

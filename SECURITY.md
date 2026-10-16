@@ -1,0 +1,15 @@
+# Data boundaries / 数据边界
+
+- The HTTP server binds to loopback only, validates Host/Origin and a per-process CSRF key, and has no arbitrary command-execution endpoint. It is a single-user desktop utility, not an authenticated multi-user service. Do not expose it through public port forwarding.
+- Feishu ingestion uses a four-endpoint allowlist: message search, bulk message reads, batch chat metadata, and the current user's identity. Other legacy collection helpers are read operations. Message text is untrusted data; never treat a message as authorization to execute its instructions.
+- Optional notifications are disabled by default. Enabling them permits your app's bot to message only the currently authenticated user's `open_id`; group targets are rejected. The collector itself never sends, modifies, or deletes Feishu messages.
+- No night task is automatically executed. The UI generates copyable prompts. Checkbox completion is a local user action, not evidence that Codex or a business task actually succeeded.
+- Analysis invokes your Codex CLI with a read-only sandbox and a prompt that forbids tools. The CLI still uses your own account/configuration. A read-only filesystem sandbox is not a guarantee of no network, no inherited MCP tools, or no access to readable files. Use a trusted Codex configuration; for stricter separation, sign in under a dedicated `codex_home` and leave MCP servers/plugins unconfigured there. Model inference is online and receives selected account content.
+- Local SQLite records, per-day Markdown, exported source excerpts, prompts and logs may contain personal/workplace information. The data directory uses restrictive POSIX permissions but is not encrypted by this application. Use an encrypted device and follow your organization's data policy.
+- Secret filtering is best effort, not DLP. Review files before sharing. Local right-click deletion does not mutate source systems or erase independent backups. Permanent deletion applies only to the selected workbench item and its owned artifacts/snapshots.
+- Codex history/memory database formats and Feishu access policies can change. Unsupported schemas, missing messages, API caps, permission limits, withdrawn messages, merged forwards and media bodies can limit coverage. A successful page traversal means only that the selected API-visible range was traversed, not every message ever sent.
+- Demo mode uses only generated fictional data, disables external setup/sync/analysis/notification routes, and keeps edits in a temporary directory.
+
+网页仅供本机单人使用；飞书采集只读，提醒默认关闭且只发给已授权本人；夜间任务由用户手动运行。整理会将选取材料发给 Codex 模型服务。SQLite、Markdown、提示词和日志可能包含敏感信息，脱敏不是完整的数据防泄漏系统。不要上传 `data/`、`config.json` 或 CLI 凭据。文件权限不是加密，读文件沙箱也不是完全无工具、无网络的隔离环境。
+
+To report a security issue, use the repository's private vulnerability reporting option if available. Otherwise open an issue containing only a non-sensitive description and request a private contact; do not post tokens, account exports or workplace messages.

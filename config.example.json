@@ -1,0 +1,18 @@
+{
+  "name": "朋友",
+  "timezone": "Asia/Shanghai",
+  "port": 8765,
+  "data_dir": "./data",
+  "codex_home": "~/.codex",
+  "codex_bin": "codex",
+  "codex_model": "",
+  "lark_bin": "lark-cli",
+  "feishu_cli_dir": "",
+  "codex_enabled": true,
+  "feishu_enabled": true,
+  "read_codex_memories": true,
+  "excluded_thread_ids": [],
+  "morning": "09:00",
+  "evening": "17:00",
+  "schedule_enabled": true
+}
