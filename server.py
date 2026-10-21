@@ -10,6 +10,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -23,6 +24,13 @@ TOKEN=secrets.token_urlsafe(32)
 PORT=config.SETTINGS['port']
 DEMO=False
 SYNC_LOCK=threading.Lock()
+
+class LoopbackHTTPServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # This app is loopback-only: reverse DNS adds no information and can hang on macOS.
+        TCPServer.server_bind(self)
+        self.server_name='localhost'
+        self.server_port=self.server_address[1]
 
 def background(fn,*args):
     threading.Thread(target=fn,args=args,daemon=True).start()
@@ -285,7 +293,7 @@ def main():
         import demo
         demo.seed()
     else:background(scheduler)
-    server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
+    server=LoopbackHTTPServer(('127.0.0.1',PORT),Handler)
     print(f'Mystation: http://127.0.0.1:{PORT}',flush=True)
     server.serve_forever()
 

@@ -9,6 +9,7 @@ import demo
 import engine
 import feishu_api
 import sources
+import server
 import storage as db
 
 class PortableTests(unittest.TestCase):
@@ -26,6 +27,12 @@ class PortableTests(unittest.TestCase):
     def test_no_history_or_memory_is_valid_for_a_new_install(self):
         with patch.object(sources,'CODEX',Path(self.temp.name)/'empty-codex'):
             self.assertEqual(sources.sync_codex(db.today()),{'threads':0,'memories':0,'read_errors':0});self.assertEqual(sources.recent_codex(),[])
+    def test_loopback_startup_does_not_require_reverse_dns(self):
+        with patch('socket.getfqdn',side_effect=AssertionError('Reverse DNS must not be used')):
+            http=server.LoopbackHTTPServer(('127.0.0.1',0),server.Handler)
+            try:
+                self.assertEqual(http.server_name,'localhost');self.assertGreater(http.server_port,0)
+            finally:http.server_close()
     def test_configured_data_path_excludes_own_runs(self):
         self.assertTrue(sources.internal_chat({'id':'a','cwd':str(db.DATA/'runs/a')}))
         self.assertFalse(sources.internal_chat({'id':'b','cwd':str(Path(self.temp.name)/'project')}))
