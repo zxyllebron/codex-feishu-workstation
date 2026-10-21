@@ -22,7 +22,11 @@ def run(demo):
         env={**os.environ,'WORKSTATION_CONFIG':str(path),'PATH':'/usr/bin:/bin'}
         log=(folder/'server.log').open('w')
         options={'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP} if os.name=='nt' else {}
-        proc=subprocess.Popen([sys.executable,str(ROOT/'server.py'),*(['--demo'] if demo else [])],env=env,cwd=ROOT,stdout=log,stderr=log,**options)
+        # Capture the child stack if startup hangs, rather than losing the cause with the temp log.
+        launcher=('import faulthandler,runpy,sys;faulthandler.dump_traceback_later(8,repeat=True);'
+                  'sys.argv=sys.argv[1:];sys.path.insert(0,'+repr(str(ROOT))+');'
+                  'runpy.run_path(sys.argv[0],run_name="__main__")')
+        proc=subprocess.Popen([sys.executable,'-u','-c',launcher,str(ROOT/'server.py'),*(['--demo'] if demo else [])],env=env,cwd=ROOT,stdout=log,stderr=log,**options)
         base=f'http://127.0.0.1:{port}'
         # This check is local-only; do not inherit system/CI HTTP proxies (including macOS settings).
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
