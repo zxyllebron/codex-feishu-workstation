@@ -24,15 +24,19 @@ def run(demo):
         options={'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP} if os.name=='nt' else {}
         proc=subprocess.Popen([sys.executable,str(ROOT/'server.py'),*(['--demo'] if demo else [])],env=env,cwd=ROOT,stdout=log,stderr=log,**options)
         base=f'http://127.0.0.1:{port}'
+        # This check is local-only; do not inherit system/CI HTTP proxies (including macOS settings).
+        opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
         def get(route):
-            with urllib.request.urlopen(base+route,timeout=5) as r:return json.load(r)
+            with opener.open(base+route,timeout=2) as r:return json.load(r)
         try:
-            deadline=time.monotonic()+10
+            deadline=time.monotonic()+20
             while True:
                 try:
                     if get('/api/health')['ok']:break
                 except (OSError,ValueError):
-                    if time.monotonic()>deadline:raise RuntimeError('Server did not become healthy')
+                    if proc.poll() is not None or time.monotonic()>deadline:
+                        log.flush()
+                        raise RuntimeError('Server did not become healthy; exit='+str(proc.poll())+'\n'+(folder/'server.log').read_text(encoding='utf-8',errors='replace'))
                     time.sleep(.1)
             state=get('/api/state');assert state['demo']==demo
             assert state['settings']['auto_night'] is False
@@ -41,7 +45,7 @@ def run(demo):
                 records=get('/api/records');assert all(r['id']!='memory:demo-old' for r in records['items'])
                 assert len(get('/api/archives')['items'])==2
                 req=urllib.request.Request(base+'/api/analyze',data=b'{}',headers={'X-Workstation-Key':state['csrf'],'Content-Type':'application/json'})
-                try:urllib.request.urlopen(req);raise AssertionError('Demo analysis must not run')
+                try:opener.open(req,timeout=5);raise AssertionError('Demo analysis must not run')
                 except urllib.error.HTTPError as e:assert e.code==400
             else:assert not state['tasks'] and not state['records'] and not state['night_tasks']
             print(('Account-free demo' if demo else 'Clean empty instance')+': HTTP smoke test passed')
