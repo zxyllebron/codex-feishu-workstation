@@ -21,7 +21,8 @@ def run(demo):
         path=folder/'config.json';path.write_text(json.dumps(cfg))
         env={**os.environ,'WORKSTATION_CONFIG':str(path),'PATH':'/usr/bin:/bin'}
         log=(folder/'server.log').open('w')
-        proc=subprocess.Popen([sys.executable,str(ROOT/'server.py'),*(['--demo'] if demo else [])],env=env,cwd=ROOT,stdout=log,stderr=log)
+        options={'creationflags':subprocess.CREATE_NEW_PROCESS_GROUP} if os.name=='nt' else {}
+        proc=subprocess.Popen([sys.executable,str(ROOT/'server.py'),*(['--demo'] if demo else [])],env=env,cwd=ROOT,stdout=log,stderr=log,**options)
         base=f'http://127.0.0.1:{port}'
         def get(route):
             with urllib.request.urlopen(base+route,timeout=5) as r:return json.load(r)
@@ -45,7 +46,10 @@ def run(demo):
             else:assert not state['tasks'] and not state['records'] and not state['night_tasks']
             print(('Account-free demo' if demo else 'Clean empty instance')+': HTTP smoke test passed')
         finally:
-            proc.terminate()
+            if os.name=='nt' and proc.poll() is None:
+                # Windows venv launchers may own a child interpreter that still holds the log.
+                subprocess.run(['taskkill','/PID',str(proc.pid),'/T','/F'],capture_output=True,check=False)
+            elif proc.poll() is None:proc.terminate()
             try:proc.wait(timeout=5)
             except subprocess.TimeoutExpired:proc.kill();proc.wait()
             log.close()

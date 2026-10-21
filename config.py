@@ -14,8 +14,11 @@ DEFAULTS = {
     'feishu_cli_dir': '', 'codex_enabled': True, 'feishu_enabled': True,
     'read_codex_memories': True, 'excluded_thread_ids': [],
     'morning': '09:00', 'evening': '17:00', 'schedule_enabled': True,
+    'gmail_enabled': False, 'applications_enabled': False, 'application_roots': [],
+    'connector_inbox': './data/connector-inbox',
+    'codex_transport': 'default',
 }
-SETTINGS = {**DEFAULTS, **(json.loads(CONFIG_FILE.read_text()) if CONFIG_FILE.exists() else {})}
+SETTINGS = {**DEFAULTS, **(json.loads(CONFIG_FILE.read_text(encoding='utf-8-sig')) if CONFIG_FILE.exists() else {})}
 ZoneInfo(SETTINGS['timezone'])  # Fail early on an invalid timezone.
 if not isinstance(SETTINGS['port'], int) or not 1 <= SETTINGS['port'] <= 65535:
     raise ValueError('port must be an integer between 1 and 65535')

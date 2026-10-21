@@ -1,0 +1,21 @@
+{
+  "name": "朋友",
+  "timezone": "Asia/Shanghai",
+  "port": 8765,
+  "data_dir": "./data",
+  "codex_home": "~/.codex",
+  "codex_bin": "codex",
+  "codex_model": "",
+  "codex_enabled": true,
+  "feishu_enabled": false,
+  "gmail_enabled": true,
+  "applications_enabled": true,
+  "application_roots": [],
+  "connector_inbox": "./data/connector-inbox",
+  "codex_transport": "default",
+  "read_codex_memories": true,
+  "excluded_thread_ids": [],
+  "morning": "09:00",
+  "evening": "17:00",
+  "schedule_enabled": false
+}

@@ -1,16 +1,16 @@
-# Codex × Feishu Workstation
+# Mystation — a local personal workspace
 
 English | [简体中文](README.zh-CN.md)
 
-**A local personal workspace powered by Codex and your own Feishu account.** A clean, editable web UI for manual todos, inferred intentions, night-work recommendations, forecasts, and searchable memories/messages.
+**A local personal workspace powered by Codex, with optional Feishu and application tracking.** A clean, editable web UI for todos, inferred intentions, recommendations, searchable memories/messages, and school-grouped applications. Formerly Codex × Feishu Workstation; the repository URL stays the same.
 
-[Setup and Codex configuration](docs/SETUP.md) · [Feishu configuration](docs/FEISHU.md)
+[Setup and Codex configuration](docs/SETUP.md) · [Application tracking and Gmail snapshots](docs/APPLICATIONS.md) · [Optional Feishu](docs/FEISHU.md)
 
 ![Workstation UI — fictional demo data](docs/assets/overview.jpg)
 
 ## Try the UI immediately
 
-Python **3.11+**, Linux/macOS or Windows through WSL2. No Python packages, frontend build, API keys, or accounts are required for the demo.
+Python **3.11+**. Linux/macOS use system timezone data; native Windows also needs `python -m pip install -r requirements.txt` (`tzdata`). No frontend build, API keys, or accounts are required for the demo.
 
 ```bash
 git clone https://github.com/zxyllebron/codex-feishu-workstation.git
@@ -18,42 +18,44 @@ cd codex-feishu-workstation
 python3 server.py --demo
 ```
 
-Open **http://127.0.0.1:8765/**. If occupied, add `--port 8766`. The demo uses fictional data in a temporary folder; it never connects to Feishu, reads your Codex history, or invokes a model. Edits disappear when the demo exits. Stop with Ctrl+C.
+Open **http://127.0.0.1:8765/**. If occupied, add `--port 8766`. On Windows use `python` instead of `python3`. The demo includes fictional applications grouped by school; it never connects to accounts, reads your Codex history, or invokes a model. Edits disappear when the demo exits. Stop with Ctrl+C.
 
 ## Connect your own accounts
 
-Install and sign in to **Codex CLI** and install the **official Feishu CLI** first. Account access and Feishu tenant approval are required; cloning this repository does not include anyone else's authorization.
+Install and sign in to **Codex CLI**. Feishu is optional: set `feishu_enabled` to `false` to use Codex alone. For application tracking, start from [config.applications.example.json](config.applications.example.json) as your ignored `config.json`, and follow the [snapshot guide](docs/APPLICATIONS.md). Gmail access is not bundled: your own authorized collector must provide the snapshots.
 
 ```bash
 npm install -g @openai/codex
 codex login
-npx @larksuite/cli@latest install
 
 python3 manage.py init
 # Edit config.json: display name, timezone, paths, optional Codex model.
 python3 manage.py doctor
-python3 manage.py feishu-setup
-python3 manage.py feishu-login
 python3 server.py
 ```
 
-Complete Feishu application setup and the personal read-only permission grant in your browser. See the [step-by-step Feishu guide](docs/FEISHU.md), including exact scopes, new/existing app paths, optional private reminders, revocation, and troubleshooting. Every `manage.py feishu*` command uses the same isolated credential directory as the web service.
+To enable Feishu, install the official CLI with `npx @larksuite/cli@latest install`, then run `python3 manage.py feishu-setup` and `python3 manage.py feishu-login`. Complete your own tenant setup and personal read-only permission grant. See the [Feishu guide](docs/FEISHU.md). Every `manage.py feishu*` command uses the same isolated credential directory as the web service.
 
 ## What it does
 
 - **Your todos stay yours.** Only manually entered tasks become todos. Codex proposes at most three intentions in a separate section.
+- **Edit and reopen.** Right-click a manual todo to edit it. Completed todos can also be returned to unfinished; editing preserves completion and its original timestamp.
+- **24-hour completion retention.** Completed work stays on the home page for a full 24 hours, across midnight and restarts, then appears in Memories & Messages → Completed. Reopening and completing again starts a new timer.
+- **School-grouped applications.** Optional application evidence from local notes, Codex history and imported Gmail/portal snapshots. Expand a school to view its programs, stages, next actions and cited sources. Faculty contacts are separate from formal applications; historical evidence is distinct from portal verification.
 - **17:00 planning.** Night recommendations (0–3) and forecasts (0–2) update together at 17:00, or when you explicitly click a planning button. Morning summaries at 09:00 update intentions only. Times can be changed or paused.
 - **Manual execution.** A night recommendation contains its theme, content, and copyable prompt. You choose whether to paste it into Codex. Copying never marks it complete; checkboxes do. No automatic night execution or task queue.
 - **Separate deletion and completion.** Todos, intentions, recommendations, and forecasts support right-click deletion. Completed work has separate lazy-loaded categories and a confirmed permanent-delete action.
 - **Read-only ingestion.** Personal Feishu OAuth, cross-chat search, paginated bulk message retrieval, and thread/reply identifiers. Refreshes today's visible messages every 10 minutes. A bot alone does not grant access to your personal conversations.
 - **Five-day window, long-term files.** The UI shows today plus the previous four dates. Older collected records remain in local SQLite and daily Markdown archives. A “related to me” filter selects mentions, DMs, your messages, and participated threads.
-- **Reusable UI and backend.** Vanilla HTML/CSS/JavaScript, Python standard library, SQLite. Change CSS tokens, components, prompt schemas, or source adapters directly. No hosted dashboard subscription.
+- **Reusable UI and backend.** Vanilla HTML/CSS/JavaScript, Python and SQLite; Windows adds timezone data only. Change CSS tokens, components, prompt schemas, or source adapters directly. No hosted dashboard subscription.
+
+![Applications grouped by school — fictional demo data](docs/assets/applications.jpg)
 
 ## Configuration and platform scope
 
 `config.example.json` documents the non-secret settings. Copy/init it as `config.json`; credentials belong to the official CLIs, never this file. Relative paths resolve next to the selected configuration file. Set `WORKSTATION_CONFIG` to use another file. [Full configuration and Codex guide](docs/SETUP.md).
 
-The current release supports **Codex + Feishu only**. The interface is Chinese; the project introduction and setup guides are available in Chinese and English. Linux is the tested runtime. macOS can run the foreground server; native Windows is not verified—use WSL2. Linux user-service installation is optional:
+The interface is Chinese; the introduction and setup guides are available in English and Chinese. Native Windows includes UTF-8, timezone, SQLite connection-lifecycle and process-cancellation fixes. Automated checks cover Linux, Windows and macOS; they use synthetic data and mocked accounts, not real Gmail/Feishu authorizations. Run the foreground server on each platform; Linux user-service installation is optional:
 
 ```bash
 python3 manage.py install-service
@@ -64,7 +66,7 @@ The app runs only on `127.0.0.1`; no public hosting or GitHub Pages backend is p
 
 ## Data and privacy
 
-Local files stay under the configured data directory. When you request or schedule analysis, selected Feishu messages and Codex history excerpts are sent through your authenticated Codex model service. **Local storage does not mean offline inference.** Read [data boundaries and limitations](SECURITY.md) before connecting workplace accounts.
+Local files stay under the configured data directory. When you request or schedule analysis, selected enabled-source evidence is sent through your authenticated Codex model service. Gmail and portal snapshots require your own authorization and collection; no connector grant or background desktop automation is included. **Local storage does not mean offline inference.** Read [data boundaries and limitations](SECURITY.md).
 
 This repository contains source, synthetic test/demo data, and documentation only. It does not contain the author's messages, local databases, private Feishu account/conversation identifiers, tokens, screenshots of private work, or Codex authentication files. Never publish your own `data/`, `config.json`, CLI credential stores, or `~/.codex`.
 

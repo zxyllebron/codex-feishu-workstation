@@ -12,6 +12,8 @@
 | `feishu_api.py` | Four-endpoint personal read adapter, bulk verification, exports / 个人 API 与导出 |
 | `engine.py` | Codex context/schema, scoped analysis, report generation / 意向、规划与报告 |
 | `archives.py` | Daily Markdown snapshots and download / 日归档 |
+| `applications.py` | Application-note/history reads, sanitized connector snapshots, evidence-backed reconciliation / 申请证据与整理 |
+| `scripts/sync_applications.py` | Reusable snapshot import and explicit reconciliation helper / 快照导入助手 |
 | `static/` | Original reusable HTML/CSS/JavaScript UI / 可直接复用的网页 UI |
 | `manage.py` | Setup, diagnostics, isolated CLI wrapper, Linux service generator / 安装助手 |
 | `demo.py` | Temporary fictional UI fixture / 隔离演示 |
@@ -32,6 +34,10 @@ flowchart LR
 
 Manual todos are separate from inferred intentions. Planning is descriptive; there is no executable night queue. Analysis scopes are `intentions`, `planning` and `all`. Morning scheduling uses `intentions`; 17:00 scheduling uses `planning`; explicit overview clicks can use `all`. Idempotent per-date schedule slots prevent duplicate reports. Late planning is not automatically rerun.
 
+Completed work stays on the home page for 24 elapsed hours based on its persisted timezone-aware `completed_at`. At expiration it is listed under completed memories without deleting or moving database rows. Editing content preserves the timestamp; explicit reopen clears it. SQLite context managers close their connections after commit/rollback, including on Windows.
+
+Optional Gmail/portal snapshots and configured local application notes feed the same local record store. The application adapter uses a separate evidence digest and model schema, groups formal applications by school/program/cycle, and separates faculty contacts. External collection, authorization and portal access are outside this repository; see [APPLICATIONS.md](APPLICATIONS.md).
+
 `records` keeps latest source records and `record_snapshots` keeps daily versions. `tasks` stores manual todos and intentions; `planning_items` stores user-visible recommendations and forecasts with stable normalized-title IDs. Soft-deletion markers prevent the same item being regenerated. `purged_items` prevents confirmed permanently deleted IDs being reimported. Independent old backups are not rewritten by deletion.
 
 ## Customize the UI
@@ -40,7 +46,7 @@ Manual todos are separate from inferred intentions. Planning is descriptive; the
 - Navigation, row rendering, completed views and copy prompts live in `static/app.js`. Keep `data-work-*` attributes if retaining right-click menus.
 - `static/index.html` is the shell; API state fills it. Reuse `static/` with your own backend by matching the response contracts.
 - Change planning schemas and filtering in `engine.py`. Preserve evidence references, manual todo ownership, and the distinction between recommendation, execution and completion.
-- The current scope is Codex + Feishu. No other software/AI adapters are installed.
+- Feishu and application tracking can be enabled independently. Gmail/portal support imports evidence snapshots; it is not a live OAuth or browser collector.
 
 ## API overview
 
@@ -49,6 +55,8 @@ Mutations require loopback Host, same-origin checks and `X-Workstation-Key` from
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health`, `/api/state` | Service/state |
+| GET | `/api/applications`, `/api/application-evidence?id=...` | Application snapshot / cited evidence |
+| POST | `/api/applications/reconcile` | Explicitly analyze existing application evidence; requires enabled adapter and a non-demo instance |
 | GET | `/api/records` | Five-day records, `kind`, `related`, `query`, pagination |
 | GET | `/api/archives`, `/api/archive?day=YYYY-MM-DD` | Markdown index/download |
 | GET | `/api/completed` | Lazy category index; then `category=work|night|date` and optional `day` |

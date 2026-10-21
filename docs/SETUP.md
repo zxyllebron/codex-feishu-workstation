@@ -4,7 +4,7 @@
 
 ## 1. Requirements and files
 
-Use Python 3.11+ with SQLite and IANA timezone data. Linux is tested; macOS foreground use is supported by the code but not release-tested. On Windows use a Linux WSL2 distribution. Node.js 20+ is recommended for installing the external CLIs. The server itself has no Python third-party dependencies or Node runtime dependency.
+Use Python 3.11+ with SQLite and IANA timezone data. The foreground server works across Linux, macOS and native Windows; automated tests use synthetic data and mocked accounts. Install dependencies with `python3 -m pip install -r requirements.txt`; this only adds `tzdata` on Windows. Node.js is needed for the external CLIs, not the web server. On Windows use `python` in place of `python3`.
 
 Clone or extract a release, open a terminal in that folder, then run:
 
@@ -27,7 +27,7 @@ codex login status
 
 Complete the browser sign-in. Alternatively, with an OpenAI API key already in the environment, use `printenv OPENAI_API_KEY | codex login --with-api-key`. API-key usage is billed to that API account. Never put a credential in a repository file. Official references: [CLI](https://learn.chatgpt.com/docs/codex/cli), [authentication](https://learn.chatgpt.com/docs/auth).
 
-The workbench invokes `codex exec --ephemeral --skip-git-repo-check --sandbox read-only --output-schema ... -o ... -`. Selected source material is passed through stdin, the final JSON is written to a local run folder, and saved CLI authentication is reused. The workbench never opens or exports `auth.json`. See [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
+The workbench invokes `codex exec --ignore-user-config --ephemeral --skip-git-repo-check --sandbox read-only --output-schema ... -o ... -`. It reuses saved CLI authentication while ignoring user configuration for execution. Use a CLI version supporting `--ignore-user-config`; check `codex exec --help`. Selected source material is passed through stdin and final JSON is written to a local run folder. The workbench never opens or exports `auth.json`. See [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
 
 ## 3. Initialize configuration
 
@@ -46,7 +46,7 @@ Edit the generated `config.json`. It is ignored by Git and is not a credential s
 | `data_dir` | `./data` | SQLite, Markdown, exports and run logs |
 | `codex_home` | `~/.codex` | CLI account/config and local history directory |
 | `codex_bin` | `codex` | CLI executable on PATH, or an absolute path |
-| `codex_model` | empty | Uses your CLI's default; set an OpenAI model your account can access to pass `--model` |
+| `codex_model` | empty | Uses the CLI default without user configuration; set a model your account can access to pass `--model` |
 | `lark_bin` | `lark-cli` | Official Feishu CLI executable |
 | `feishu_cli_dir` | empty | Empty selects `<data_dir>/feishu-cli`; otherwise use your dedicated CLI store |
 | `codex_enabled` | `true` | Automatic Codex history collection; does not disable explicit analysis |
@@ -55,6 +55,10 @@ Edit the generated `config.json`. It is ignored by Git and is not a credential s
 | `excluded_thread_ids` | `[]` | Chat IDs to exclude from Codex ingestion |
 | `morning` / `evening` | `09:00` / `17:00` | Initial schedule values; later edit them in the UI |
 | `schedule_enabled` | `true` | Initial daily scheduling preference; can be paused in the UI |
+| `applications_enabled` / `gmail_enabled` | `false` | Optional application page / Gmail snapshot indicator; no Gmail authorization or live collector is installed |
+| `application_roots` | `[]` | Your own application note folders |
+| `connector_inbox` | `./data/connector-inbox` | Directory of sanitized Gmail/portal JSON snapshots |
+| `codex_transport` | `default` | Use `https` to opt into the fixed OpenAI HTTPS transport override; saved authentication is reused |
 
 Relative paths resolve beside `config.json`, not the shell's working directory. Use `WORKSTATION_CONFIG=/absolute/path/config.json python3 server.py` for an alternative file. Do not rename `HOME` or `CODEX_HOME` in shell scripts to use them as temporary variables. The app sets the Codex subprocess's `CODEX_HOME` to the configured `codex_home`.
 
@@ -72,7 +76,7 @@ Memory ingestion reads supported `memories_*.sqlite` stage-one outputs if presen
 
 ## 5. Connect Feishu and run
 
-Follow [FEISHU.md](FEISHU.md). Then:
+Feishu is optional. For Codex-only use, set `feishu_enabled` to `false`; diagnostics and sync skip the Feishu CLI. For school/application tracking, use [config.applications.example.json](../config.applications.example.json) and [APPLICATIONS.md](APPLICATIONS.md). If enabling Feishu, follow [FEISHU.md](FEISHU.md). Then:
 
 ```bash
 python3 server.py
@@ -99,7 +103,7 @@ systemctl --user stop codex-feishu-workstation.service
 
 User services normally start after login. Keep the computer awake; suspended/offline machines cannot run schedules. Planning starts only in the configured minute and is not caught up later. Morning summaries can catch up within one hour. A restart does not rerun a schedule already recorded for that date. No 08:00/20:00 Codex monitor is installed by this repository; monitoring is optional and separate from these schedules.
 
-On macOS, run the foreground server or create your own launchd entry. No unverified launchd or Windows-service installer is shipped.
+On macOS and Windows, run the foreground server or configure your own OS service. No machine-specific launcher, private runtime configuration or unverified service installer is shipped. This release keeps the existing data directory and service names for upgrade compatibility.
 
 ## 7. Troubleshooting
 
@@ -110,7 +114,7 @@ On macOS, run the foreground server or create your own launchd entry. No unverif
 | Empty history | Correct `codex_home`, history exists, supported schema, excluded IDs and date window |
 | Empty memories | A fresh CLI may have none; this is optional |
 | Works in terminal, fails as service | Interpreter, captured PATH, home directory, CLI keychain access in the user session |
-| Timezone not found | Install OS timezone data (`tzdata` on many Linux distributions) |
+| Timezone not found | Install OS timezone data on Linux; on Windows run `python -m pip install -r requirements.txt` |
 | Scheduled report missing | Computer awake, service enabled, Settings enabled, schedule fires/report status; click manually if the planning minute was missed |
 | Feishu authorization or message error | [Feishu troubleshooting](FEISHU.md#troubleshooting) |
 

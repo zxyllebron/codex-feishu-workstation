@@ -16,7 +16,7 @@ TITLES = {}
 def internal_chat(row):
     if row['id'] in config.SETTINGS['excluded_thread_ids']:return True
     cwd=Path(row['cwd']).resolve()
-    return cwd.is_relative_to(db.DATA.resolve()) or any(p in str(cwd) for p in ('/workworld/data/','/workstation/data/'))
+    return cwd.is_relative_to(db.DATA.resolve()) or any(p in str(cwd).replace('\\','/') for p in ('/workworld/data/','/workstation/data/'))
 
 def thread_rows(start,end):
     errors=[]
@@ -38,7 +38,7 @@ def thread_rows(start,end):
     return rows
 
 def ro(path):
-    c = sqlite3.connect(f'file:{path}?mode=ro', uri=True, timeout=4)
+    c = sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro', uri=True, timeout=4, factory=db.ClosingConnection)
     c.row_factory = sqlite3.Row
     return c
 
@@ -168,9 +168,13 @@ def sync_all():
     day = db.today(); status={'at': db.now(), 'day': day}
     try: status['codex'] = sync_codex(day) if config.SETTINGS['codex_enabled'] else {'disabled':True}
     except Exception as e: status['codex'] = {'error': db.clean(str(e))[:300]}
-    status['feishu'] = sync_feishu(day)
+    status['feishu'] = sync_feishu(day) if config.SETTINGS['feishu_enabled'] else {'disabled':True,'messages':0}
+    if config.SETTINGS.get('applications_enabled'):
+        import applications
+        try:status['applications']=applications.sync_local()
+        except Exception as e:status['applications']={'error':db.clean(str(e))[:300]}
     import archives
     status['archives']={'days':len(archives.write_days())}
     db.put('last_sync', status)
-    db.event('sync', '已同步今日工作记录', f"Codex {status.get('codex', {}).get('threads', 0)} 个会话 · {status.get('codex', {}).get('memories', 0)} 条记忆 · 飞书 {status['feishu']['messages']} 条消息")
+    db.event('sync', '已同步工作记录', f"Codex {status.get('codex', {}).get('threads', 0)} 个会话 · {status.get('codex', {}).get('memories', 0)} 条记忆"+(f" · 飞书 {status['feishu']['messages']} 条消息" if config.SETTINGS['feishu_enabled'] else ' · 飞书已关闭'))
     return status

@@ -66,12 +66,16 @@ def state():
         fires=[dict(r) for r in c.execute('SELECT * FROM schedule_fires ORDER BY created DESC LIMIT 20')]
     records=db.records();ts=db.todos();intentions=db.intentions();night_tasks=[{**t,'copy_prompt':engine.copy_prompt(t)} for t in db.night_work()];rs=db.runs()
     current_records=list(records)
+    home_completed=[{**t,'copy_prompt':engine.copy_prompt(t)} if t['_completed_kind']=='night' else t
+                    for t in db.recent_completed_work()]
     plan=db.get('plan:'+db.today())
     if plan:plan={**plan,'risks':db.active_planning('risk'),'night_recommendations':db.night_work()}
-    ids={i for t in ts+intentions+night_tasks+(plan.get('risks',[]) if plan else []) for i in t.get('evidence_ids',[])}-{r['id'] for r in records}
+    ids={i for t in ts+intentions+night_tasks+home_completed+(plan.get('risks',[]) if plan else []) for i in t.get('evidence_ids',[])}-{r['id'] for r in records}
     records+=db.evidence_records(ids)
     return {'date':db.today(),'now':db.now(),'timezone':config.SETTINGS['timezone'],'demo':DEMO,'csrf':TOKEN,'settings':db.get('settings'),
-        'records':records,'tasks':ts,'intentions':intentions,'night_tasks':night_tasks,'runs':rs,'plan':plan,'last_sync':db.get('last_sync'),
+        'records':records,'tasks':ts,'intentions':intentions,'night_tasks':night_tasks,'home_completed':home_completed,'runs':rs,'plan':plan,'last_sync':db.get('last_sync'),
+        'capabilities':{k:bool(config.SETTINGS.get(k)) for k in ('codex_enabled','feishu_enabled','gmail_enabled','applications_enabled')},
+        'applications':db.get('applications',{}),'connector_status':db.get('connector_status',{}),'application_sync':db.get('application_sync',{}),
         'feishu':db.get('feishu_status'),'events':events,'notifications':db.get('notifications',[]),'scheduler_heartbeat':db.get('scheduler_heartbeat'),
         'feishu_connection':feishu.connection(),'feishu_job':feishu.public_job(),
         'schedule_fires':fires,'reports':{k:db.get('report:'+k+':'+db.today()) for k in ['morning','evening','night']},
@@ -93,6 +97,13 @@ class Handler(BaseHTTPRequestHandler):
         path=urlparse(self.path).path
         if path=='/api/state':return self.send(state())
         if path=='/api/health':return self.send({'ok':True,'at':db.now()})
+        if path=='/api/applications':return self.send(db.get('applications',{}))
+        if path=='/api/application-evidence':
+            identifier=parse_qs(urlparse(self.path).query).get('id',[''])[0]
+            permitted={ref for case in db.get('applications',{}).get('items',[]) for ref in case.get('evidence_ids',[])}
+            if identifier not in permitted:return self.send({'error':'不存在的申请来源'},404)
+            rows=db.evidence_records([identifier])
+            return self.send(rows[0]) if rows else self.send({'error':'来源不存在'},404)
         if path=='/api/records':
             try:
                 q=parse_qs(urlparse(self.path).query)
@@ -143,15 +154,25 @@ class Handler(BaseHTTPRequestHandler):
         p=db.ROOT/'static'/files[path]
         return self.send(p.read_bytes(),ctype=mimetypes.guess_type(p)[0]+'; charset=utf-8')
     def do_POST(self):
-        if not self.allowed_host():return self.send({'error':'仅支持本机访问'},403)
-        origin=self.headers.get('Origin')
-        if origin and origin not in (f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}'):return self.send({'error':'不允许跨站操作'},403)
-        if not secrets.compare_digest((self.headers.get('X-Workstation-Key') or self.headers.get('X-Workworld-Key','')),TOKEN):return self.send({'error':'请刷新工作台后重试'},403)
         try:
             size=int(self.headers.get('Content-Length','0'))
-            if size>2_000_000:return self.send({'error':'请求过大'},413)
-            data=json.loads(self.rfile.read(size) or '{}')
+            if not 0<=size<=2_000_000:return self.send({'error':'无效请求长度'},413)
+            # Drain bounded request bodies before a rejection, avoiding TCP resets on Windows.
+            self.connection.settimeout(10)
+            body=self.rfile.read(size)
+            if not self.allowed_host():return self.send({'error':'仅支持本机访问'},403)
+            origin=self.headers.get('Origin')
+            if origin and origin not in (f'http://127.0.0.1:{PORT}',f'http://localhost:{PORT}'):return self.send({'error':'不允许跨站操作'},403)
+            if not secrets.compare_digest((self.headers.get('X-Workstation-Key') or self.headers.get('X-Workworld-Key','')),TOKEN):return self.send({'error':'请刷新工作台后重试'},403)
+            data=json.loads(body or '{}')
             path=urlparse(self.path).path
+            if path.startswith('/api/feishu/') and not config.SETTINGS['feishu_enabled']:
+                return self.send({'error':'此部署已关闭飞书'},403)
+            if path=='/api/applications/reconcile':
+                if not config.SETTINGS.get('applications_enabled') or DEMO:return self.send({'error':'申请跟踪未启用'},400)
+                import applications
+                if engine.LOCK.locked():return self.send({'error':'Codex 正在整理，请稍后再试'},409)
+                background(applications.reconcile);return self.send({'started':True})
             if DEMO and path in ('/api/analyze','/api/sync','/api/notify-test','/api/feishu/connect','/api/feishu/crawl','/api/report'):
                 return self.send({'error':'演示模式使用虚构数据，不连接账号或调用模型。'},400)
             if path=='/api/completed/delete':return self.send(db.delete_completed(data.get('kind'),data.get('id')))
@@ -192,8 +213,9 @@ class Handler(BaseHTTPRequestHandler):
                 if 'status' in data:
                     if data['status'] not in ('todo','done','blocked','observed'):raise ValueError('无效任务状态')
                     if t.get('origin')!='user' and data['status'] not in ('todo','done'):raise ValueError('意向仅支持完成或重新打开')
+                    completed_at=(t.get('completed_at') if t.get('status')=='done' else None) or db.now()
                     t.update(status=data['status'],manual_status=True)
-                    t['completed_at']=db.now() if data['status']=='done' else None
+                    t['completed_at']=completed_at if data['status']=='done' else None
                     if t.get('origin')!='user' and data['status']=='todo':t.update(day=db.today(),stale=False,dismissed=False,rank=-1)
                 if 'queued' in data:
                     raise ValueError('夜间工作由你复制提示词后手动运行，不再使用执行队列')
@@ -226,7 +248,7 @@ class Handler(BaseHTTPRequestHandler):
                 s.pop('night_limit',None)
                 s.update(auto_night=False,night_mode='manual_copy')
                 db.put('settings',s);db.event('settings','已保存个人偏好');return self.send(s)
-            if path=='/api/notify-test':return self.send(engine.notify('Workstation · 连接测试','本机工作台已启动。此消息用于验证提醒通道。'))
+            if path=='/api/notify-test':return self.send(engine.notify('Mystation · 连接测试','本机工作台已启动。此消息用于验证提醒通道。'))
             if path=='/api/import':
                 records=data.get('messages',[])
                 if not isinstance(records,list) or len(records)>1000:raise ValueError('每次最多导入 1000 条记录')
@@ -251,6 +273,7 @@ def main():
     if DEMO:
         import tempfile
         demo_data=tempfile.TemporaryDirectory(prefix='workstation-demo-');db.DATA=Path(demo_data.name)
+        config.SETTINGS.update(applications_enabled=True,gmail_enabled=True)
     os.umask(0o077)
     db.init()
     import archives
@@ -263,7 +286,7 @@ def main():
         demo.seed()
     else:background(scheduler)
     server=ThreadingHTTPServer(('127.0.0.1',PORT),Handler)
-    print(f'Workstation: http://127.0.0.1:{PORT}',flush=True)
+    print(f'Mystation: http://127.0.0.1:{PORT}',flush=True)
     server.serve_forever()
 
 if __name__=='__main__':main()

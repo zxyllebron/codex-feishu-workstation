@@ -1,0 +1,25 @@
+{
+  "records": [
+    {
+      "id": "gmail:example-message-001",
+      "kind": "gmail",
+      "title": "Example University — application received (fictional)",
+      "text": "Fictional example: Example University received the Robotics MSc application for the example entry cycle. No current portal verification has been performed.",
+      "updated": "2026-10-21T09:00:00+08:00",
+      "direction": "received",
+      "source_url": "https://mail.google.com/mail/",
+      "coverage": "Fictional schema example; replace with your own sanitized evidence."
+    }
+  ],
+  "status": {
+    "gmail": {
+      "state": "snapshot_ready",
+      "checked_at": "2026-10-21T10:00:00+08:00",
+      "coverage": "Fictional example; use the time you actually read the source."
+    },
+    "portals": {
+      "state": "needs_verification",
+      "coverage": "No signed-in status page has been read."
+    }
+  }
+}

@@ -39,11 +39,11 @@ class WorkworldTests(unittest.TestCase):
     def test_workbench_analysis_sessions_are_excluded_after_rename(self):
         import sqlite3
         root=Path(self.temp.name)/'codex';root.mkdir()
-        with sqlite3.connect(root/'state_5.sqlite') as c:
+        with sqlite3.connect(root/'state_5.sqlite',factory=db.ClosingConnection) as c:
             c.execute('CREATE TABLE threads (id,title,cwd,updated_at,rollout_path)')
             for idx,cwd in enumerate(('/home/example/workworld/data/runs/old','/home/example/workstation/data/runs/new','/home/example/sdk-915')):
                 c.execute('INSERT INTO threads VALUES (?,?,?,?,?)',(str(idx),'会话',cwd,int(sources.day_range(db.today())[0].timestamp())+100,'unused'))
-        with sqlite3.connect(root/'memories_1.sqlite') as c:
+        with sqlite3.connect(root/'memories_1.sqlite',factory=db.ClosingConnection) as c:
             c.execute('CREATE TABLE stage1_outputs (generated_at,source_updated_at)')
         with patch.object(sources,'CODEX',root),patch.object(sources,'read_messages',return_value=([],False)):
             sources.sync_codex(db.today())

@@ -1,3 +1,4 @@
+import os
 import http.client
 import json
 import sqlite3
@@ -43,7 +44,7 @@ class WorkflowTests(unittest.TestCase):
     def test_intention_checkbox_completion_is_archived_and_survives_analysis(self):
         self.record();t=self.intention()
         self.assertEqual(self.request('task',{'id':t['id'],'status':'done'})[0],200)
-        self.assertEqual(db.intentions(),[]);self.assertEqual(db.completed('work')['items'][0]['id'],t['id'])
+        self.assertEqual(db.intentions(),[]);self.assertEqual(db.completed('work')['items'],[]);self.assertEqual(db.recent_completed_work()[0]['id'],t['id'])
         output={k:t.get(k,'') for k in engine.ITEM['properties']};output['estimated_minutes']=10
         plan=self.analyze(intentions=[output],night_recommendations=[self.recommendation()])
         self.assertEqual(plan['intentions'],[]);self.assertEqual(db.task(t['id'])['status'],'done');self.assertEqual(db.night_work(),[])
@@ -127,14 +128,14 @@ class WorkflowTests(unittest.TestCase):
         status,content=self.request('archive?day='+old);self.assertEqual(status,200);self.assertIn('第一天的内容',content.decode())
         self.assertEqual(self.request('archive?day=../secret')[0],400)
         self.assertEqual(self.request('archive?day=2000-01-01')[0],404)
-        self.assertEqual((db.DATA/'archives'/(old+'.md')).stat().st_mode & 0o777,0o600)
+        if os.name != 'nt':self.assertEqual((db.DATA/'archives'/(old+'.md')).stat().st_mode & 0o777,0o600)
         db.delete_completed('record','thread:one')
         self.assertNotIn('第一天的内容',archives.read(old).decode());self.assertEqual(db.evidence_records(['thread:one']),[])
 
     def test_local_backup_recovery_preserves_daily_history_and_purge_markers(self):
         self.record('thread:one',text='旧快照')
         backup=db.DATA/'backups'/'one';backup.mkdir(parents=True)
-        with db.connect() as source,sqlite3.connect(backup/'before.sqlite') as target:source.backup(target)
+        with db.connect() as source,sqlite3.connect(backup/'before.sqlite',factory=db.ClosingConnection) as target:source.backup(target)
         db.delete_completed('record','thread:one');self.assertEqual(archives.recover_local_backups(),0)
         self.assertEqual(db.visible_records()['items'],[])
 
@@ -191,10 +192,10 @@ class WorkflowTests(unittest.TestCase):
         item=db.night_work()[0]
         status,_=self.request('planning',{'id':item['id'],'status':'done'});self.assertEqual(status,200)
         self.assertEqual(db.night_work(),[])
-        page=self.request('completed?category=night')[1]
-        self.assertEqual(page['items'][0]['_completed_kind'],'night');self.assertTrue(page['items'][0]['copy_prompt'])
+        self.assertEqual(self.request('completed?category=night')[1]['items'],[])
+        self.assertEqual(db.recent_completed_work()[0]['_completed_kind'],'night')
         self.analyze(night_recommendations=[self.recommendation()])
-        self.assertEqual(db.night_work(),[]);self.assertEqual(db.completed()['counts']['night'],1)
+        self.assertEqual(db.night_work(),[]);self.assertEqual(db.completed()['counts']['night'],0);self.assertEqual(len(db.recent_completed_work()),1)
         self.assertEqual(self.request('planning',{'id':item['id'],'status':'todo'})[0],200)
         self.assertEqual(len(db.night_work()),1)
 

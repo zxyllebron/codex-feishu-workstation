@@ -57,7 +57,7 @@ def context():
         text=r.get('text') or r.get('summary','')
         chat_type=r.get('chat_type') or cache.get(r.get('chat_id'),{}).get('chat_type')
         mentioned=bool(me.get('name') and '@'+me['name'] in text) or bool(me.get('open_id') and me['open_id'] in json.dumps(r.get('mentions',[]),ensure_ascii=False))
-        related=r['kind'] in ('codex','memory') or chat_type=='p2p' or mentioned or own(r) or (r.get('chat_id'),r.get('thread_id')) in participated
+        related=r['kind'] in ('codex','memory','gmail','application_note','portal') or chat_type=='p2p' or mentioned or own(r) or (r.get('chat_id'),r.get('thread_id')) in participated
         out.append({'id': r['id'], 'kind': r['kind'], 'title': r['title'], 'updated': r['updated'], 'source_updated': r.get('source_updated'),
                     'sender':r.get('sender_name'),'source':r.get('source'),'thread_id':r.get('thread_id'),'chat_type':chat_type,
                     'mentioned_me':mentioned,'related_to_user':related,'text':text[-14000:]})
@@ -78,17 +78,25 @@ def invoke(run, prompt, schema=None):
     folder = db.DATA / 'runs' / run['id']; folder.mkdir(parents=True, mode=0o700)
     output = folder / 'result.txt'
     (folder / 'input.txt').write_text(prompt, encoding='utf-8')
-    cmd=[CODEX_BIN, 'exec', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'read-only', '--color', 'never', '-C', str(folder), '-o', str(output)]
+    cmd=[CODEX_BIN, 'exec', '--ignore-user-config', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'read-only', '--color', 'never', '-C', str(folder), '-o', str(output)]
     if schema:
-        sp=folder / 'schema.json';sp.write_text(json.dumps(schema,ensure_ascii=False));cmd += ['--output-schema', str(sp)]
+        sp=folder / 'schema.json';sp.write_text(json.dumps(schema,ensure_ascii=False),encoding='utf-8');cmd += ['--output-schema', str(sp)]
     if config.SETTINGS['codex_model']:cmd += ['--model',config.SETTINGS['codex_model']]
+    if config.SETTINGS.get('codex_transport') == 'https':
+        for setting in ('model_provider="workstation"','model_providers.workstation.name="OpenAI"',
+                        'model_providers.workstation.base_url="https://chatgpt.com/backend-api/codex"',
+                        'model_providers.workstation.wire_api="responses"',
+                        'model_providers.workstation.requires_openai_auth=true',
+                        'model_providers.workstation.supports_websockets=false'):
+            cmd+=['-c',setting]
     cmd += ['-']
     run['artifact_dir']=str(folder)
     run['input_sha256']=hashlib.sha256(prompt.encode()).hexdigest()
     db.save_run(run)
     # Only this owned process group is stopped on cancellation / timeout.
     with open(folder / 'execution.log', 'w', encoding='utf-8') as log:
-        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=log, stderr=log, text=True, start_new_session=True, env=config.codex_env())
+        options = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == 'nt' else {'start_new_session': True}
+        p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=log, stderr=log, text=True, encoding='utf-8', **options, env=config.codex_env())
         CHILDREN[run['id']]=p
         try:
             p.communicate(prompt, timeout=600)
@@ -96,14 +104,14 @@ def invoke(run, prompt, schema=None):
                 if p.returncode < 0: raise RuntimeError('执行已取消或被终止')
                 # Raw CLI logs can contain sensitive configuration; keep them local.
                 raise RuntimeError(f'Codex 执行退出码 {p.returncode}；本机运行目录中保留诊断日志')
-            if not output.exists() or not output.read_text().strip(): raise RuntimeError('Codex 未生成最终产物')
+            if not output.exists() or not output.read_text(encoding='utf-8').strip(): raise RuntimeError('Codex 未生成最终产物')
             result=db.clean(output.read_text(encoding='utf-8'))
             output.write_text(result, encoding='utf-8')
             return result
         except subprocess.TimeoutExpired:
-            os.killpg(p.pid, signal.SIGTERM)
+            stop_process(p)
             try:p.wait(timeout=5)
-            except subprocess.TimeoutExpired:os.killpg(p.pid, signal.SIGKILL);p.wait()
+            except subprocess.TimeoutExpired:stop_process(p, force=True);p.wait()
             raise RuntimeError('任务超过 10 分钟上限，已停止本次工作台执行')
         finally: CHILDREN.pop(run['id'], None)
 
@@ -211,14 +219,20 @@ def copy_prompt(item):
 def cancel(run_id):
     p=CHILDREN.get(run_id)
     if not p:return False
-    os.killpg(p.pid,signal.SIGTERM);return True
+    stop_process(p);return True
+
+def stop_process(process, force=False):
+    if process.poll() is not None:return
+    if os.name == 'nt':
+        subprocess.run(['taskkill','/PID',str(process.pid),'/T','/F'],capture_output=True,check=False)
+    else:os.killpg(process.pid,signal.SIGKILL if force else signal.SIGTERM)
 
 def notify(title, text):
     settings=db.get('settings')
     nid=str(uuid.uuid4())
     notice={'id':nid,'time':db.now(),'title':title,'text':text,'feishu_status':'disabled'}
     notices=db.get('notifications',[]);notices.insert(0,notice);db.put('notifications',notices[:60])
-    if settings.get('notify_feishu'):
+    if settings.get('notify_feishu') and config.SETTINGS['feishu_enabled']:
         try:
             if settings.get('notification_chat'):raise ValueError('提醒仅允许发送给当前已授权用户，不接受群聊目标')
             import feishu_api

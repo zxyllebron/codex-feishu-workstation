@@ -4,7 +4,7 @@ import os
 import re
 import shutil
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import config
@@ -28,10 +28,15 @@ def clean(text):
     text = re.sub(r'(?i)([?&](?:token|code|key|disposable_login_token)=)[^\s&)]+', r'\1[已隐藏]', text)
     return text
 
+class ClosingConnection(sqlite3.Connection):
+    def __exit__(self,*args):
+        try:return super().__exit__(*args)
+        finally:self.close()
+
 def connect():
     DATA.mkdir(mode=0o700, exist_ok=True)
     os.chmod(DATA, 0o700)
-    c = sqlite3.connect(DATA / 'workstation.sqlite', timeout=30)
+    c = sqlite3.connect(DATA / 'workstation.sqlite', timeout=30, factory=ClosingConnection)
     c.row_factory = sqlite3.Row
     c.execute('PRAGMA journal_mode=WAL')
     return c
@@ -131,7 +136,27 @@ def all_tasks():
 def todos(day=None):
     day=day or today()
     return [t for t in all_tasks() if t.get('origin')=='user' and not t.get('deleted')
-            and (t['status']!='done' or (t.get('completed_at') or t['day'])[:10]==day)]
+            and (t['status']!='done' or recent_completion(t))]
+
+def recent_completion(item):
+    if item.get('status')!='done' or not item.get('completed_at'):return False
+    try:
+        completed=datetime.fromisoformat(item['completed_at'].replace('Z','+00:00'))
+        current=datetime.fromisoformat(now())
+        return timedelta(0)<=current-completed<timedelta(hours=24)
+    except (ValueError,TypeError):return False
+
+def recent_completed_work():
+    items=[{**t,'_completed_kind':'task'} for t in all_tasks()
+           if (t.get('origin')=='user' or t.get('manual_status')) and not (t.get('deleted') or t.get('dismissed'))
+           and recent_completion(t)]
+    with connect() as c:
+        rows=c.execute("SELECT body FROM planning_items WHERE kind='night'").fetchall()
+    items.extend({**t,'_completed_kind':'night'} for row in rows
+                 if not (t:=json.loads(row[0])).get('deleted') and recent_completion(t))
+    for item in items:
+        item['retain_until']=(datetime.fromisoformat(item['completed_at'].replace('Z','+00:00'))+timedelta(hours=24)).isoformat()
+    return sorted(items,key=lambda t:datetime.fromisoformat(t['completed_at'].replace('Z','+00:00')),reverse=True)
 
 def intentions(day=None):
     items=[t for t in tasks(day) if t.get('origin')!='user' and t['status']!='done'
@@ -229,7 +254,8 @@ def set_planning_status(item_id,status):
         row=c.execute('SELECT body FROM planning_items WHERE id=?',(item_id,)).fetchone()
         if row:item=json.loads(row[0])
         if item.get('deleted') or c.execute("SELECT 1 FROM purged_items WHERE kind='night' AND id=?",(item_id,)).fetchone():raise ValueError('推荐已删除')
-        item.update(status=status,manual_status=True,completed_at=now() if status=='done' else None,updated=now(),stale=False)
+        completed_at=(item.get('completed_at') if item.get('status')=='done' else None) or now()
+        item.update(status=status,manual_status=True,completed_at=completed_at if status=='done' else None,updated=now(),stale=False)
         if status=='todo':item['day']=today()
         c.execute('INSERT OR REPLACE INTO planning_items VALUES (?,?,?,?)',(item_id,'night',item['day'],json.dumps(item,ensure_ascii=False)))
     return item
@@ -280,10 +306,15 @@ COMPLETED = {
 }
 
 def completed_source(category):
+    cutoff=(datetime.fromisoformat(now())-timedelta(hours=24)).isoformat()
+    expired=f"coalesce(julianday(json_extract(body,'$.completed_at')),0)<=julianday('{cutoff}')"
+    if category=='work':
+        table,kind,where,order=COMPLETED[category]
+        return table,kind,where+' AND '+expired,order
     if category!='night':return COMPLETED[category]
-    return ("""(SELECT id,created,body FROM runs WHERE json_extract(body,'$.kind')='night' AND status='success'
+    return (f"""(SELECT id,created,body FROM runs WHERE json_extract(body,'$.kind')='night' AND status='success'
         UNION ALL SELECT id,json_extract(body,'$.completed_at') AS created,body FROM planning_items
-        WHERE kind='night' AND json_extract(body,'$.status')='done' AND NOT coalesce(json_extract(body,'$.deleted'),0))""",
+        WHERE kind='night' AND json_extract(body,'$.status')='done' AND NOT coalesce(json_extract(body,'$.deleted'),0) AND {expired})""",
         'run','1=1','created')
 
 def completed(category='',day='',query='',offset=0,limit=50):
@@ -355,14 +386,14 @@ def related_flags(records):
     for r in records:
         text=r.get('text','');chat_type=r.get('chat_type') or cache.get(r.get('chat_id'),{}).get('chat_type')
         mentioned=bool(me.get('name') and '@'+me['name'] in text) or bool(me.get('open_id') and me['open_id'] in json.dumps(r.get('mentions',[])))
-        related=(r['kind'] in ('codex','memory') or chat_type=='p2p' or own(r) or mentioned or
+        related=(r['kind'] in ('codex','memory','gmail','application_note','portal') or chat_type=='p2p' or own(r) or mentioned or
                  (bool(r.get('thread_id')) and (r.get('chat_id'),r['thread_id']) in threads) or
                  any(r.get(k) in message_ids for k in ('parent_id','root_id')))
         out.append({**r,'related_to_user':bool(related)})
     return out
 
 def visible_records(kind='all',related=False,query='',offset=0,limit=50,range_name='five'):
-    if kind not in ('all','codex','memory','feishu'):raise ValueError('无效来源')
+    if kind not in ('all','codex','memory','feishu','gmail','application_note','portal'):raise ValueError('无效来源')
     offset=max(0,int(offset));limit=max(1,min(100,int(limit)))
     start=today() if range_name=='today' else window_start()
     with connect() as c:

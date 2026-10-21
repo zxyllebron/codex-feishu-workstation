@@ -12,18 +12,18 @@ import config
 import storage as db
 
 def main():
-    parser=argparse.ArgumentParser(description='Workstation setup / 安装配置')
+    parser=argparse.ArgumentParser(description='Mystation setup / 安装配置')
     parser.add_argument('command',choices=['init','doctor','feishu-setup','feishu-login','feishu-status','feishu','install-service'])
     parser.add_argument('args',nargs=argparse.REMAINDER)
     args=parser.parse_args()
     if args.command=='init':
         if config.CONFIG_FILE.exists():print('Existing config preserved / 保留已有配置:',config.CONFIG_FILE);return
         config.CONFIG_FILE.parent.mkdir(parents=True,exist_ok=True)
-        with config.CONFIG_FILE.open('x') as f:json.dump(config.DEFAULTS,f,ensure_ascii=False,indent=2);f.write('\n')
+        with config.CONFIG_FILE.open('x',encoding='utf-8') as f:json.dump(config.DEFAULTS,f,ensure_ascii=False,indent=2);f.write('\n')
         config.CONFIG_FILE.chmod(0o600);print('Created / 已生成:',config.CONFIG_FILE);return
     if args.command=='doctor':
         checks=[]
-        for key in ('codex_bin','lark_bin'):
+        for key in (['codex_bin'] if not config.SETTINGS['feishu_enabled'] else ['codex_bin','lark_bin']):
             exe=config.executable(key);found=bool(shutil.which(exe))
             checks.append({'check':key,'ok':found,'path':exe})
         checks += [{'check':'python >= 3.11','ok':sys.version_info>=(3,11)},

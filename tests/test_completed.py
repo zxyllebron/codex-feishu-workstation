@@ -4,6 +4,7 @@ import sqlite3
 import tempfile
 import threading
 import unittest
+from datetime import datetime,timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,7 +36,7 @@ class CompletedTests(unittest.TestCase):
         return response.status,json.loads(raw) if response.getheader('Content-Type').startswith('application/json') else raw
 
     def task(self,id='todo:done',**extra):
-        t={'id':id,'day':db.today(),'origin':'user','title':'手填已完成','status':'done','completed_at':db.now(),**extra}
+        t={'id':id,'day':db.today(),'origin':'user','title':'手填已完成','status':'done','completed_at':(datetime.fromisoformat(db.now())-timedelta(hours=25)).isoformat(),**extra}
         db.save_task(t);return t
 
     def make_run(self,id='night-done',**extra):
@@ -106,16 +107,20 @@ class CompletedTests(unittest.TestCase):
         for id in ['../keep','linked']:
             self.make_run(id)
             if id=='linked':
-                root=db.DATA/'runs';root.mkdir(exist_ok=True);(root/id).symlink_to(outside,target_is_directory=True)
+                root=db.DATA/'runs';root.mkdir(exist_ok=True)
+                try:(root/id).symlink_to(outside,target_is_directory=True)
+                except OSError as error:
+                    if getattr(error,'winerror',None)==1314:self.skipTest('Windows user lacks symbolic-link privilege; traversal case already checked')
+                    raise
             with self.assertRaises(ValueError):db.delete_completed('run',id)
             self.assertIsNotNone(db.run(id));self.assertTrue((outside/'keep').exists())
 
     def test_record_purge_removes_evidence_and_does_not_reappear_in_recent_context(self):
         r=self.record('thread:one');source=self.folder/'source.jsonl';source.write_text('original')
-        with sqlite3.connect(self.folder/'state_5.sqlite') as c:
+        with sqlite3.connect(self.folder/'state_5.sqlite',factory=db.ClosingConnection) as c:
             c.execute('CREATE TABLE threads(id,title,cwd,updated_at,rollout_path)')
             c.execute('INSERT INTO threads VALUES(?,?,?,?,?)',('one','one','/home/example/project',int(sources.day_range(db.today())[0].timestamp())+1,str(source)))
-        with sqlite3.connect(self.folder/'memories_1.sqlite') as c:
+        with sqlite3.connect(self.folder/'memories_1.sqlite',factory=db.ClosingConnection) as c:
             c.execute('CREATE TABLE stage1_outputs(thread_id,generated_at,source_updated_at,rollout_slug,raw_memory,rollout_summary)')
         self.assertTrue(db.delete_completed('record',r['id'])['deleted']);db.save_record(r)
         self.assertEqual(db.evidence_records([r['id']]),[])

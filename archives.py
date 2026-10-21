@@ -9,7 +9,7 @@ from datetime import date
 import storage as db
 
 LOCK=threading.RLock()
-NAMES={'codex':'Codex 会话','memory':'Codex 记忆','feishu':'飞书消息'}
+NAMES={'codex':'Codex 会话','memory':'Codex 记忆','feishu':'飞书消息','gmail':'Gmail 邮件','application_note':'申请记录','portal':'申请门户'}
 
 def valid_day(day):
     if not re.fullmatch(r'\d{4}-\d{2}-\d{2}',str(day)) or date.fromisoformat(day).isoformat()!=day:raise ValueError('无效归档日期')
@@ -34,8 +34,8 @@ def write_days(days=None):
                 else:lines.extend([r.get('text',''),''])
                 if r.get('summary') and r.get('summary')!=r.get('text'):lines.extend(['### 摘要','',r['summary'],''])
             text=db.clean('\n'.join(lines));path=folder/(day+'.md')
-            if not path.exists() or path.read_text()!=text:
-                temp=path.with_suffix('.tmp');temp.write_text(text);os.chmod(temp,0o600);temp.replace(path)
+            if not path.exists() or path.read_text(encoding='utf-8')!=text:
+                temp=path.with_suffix('.tmp');temp.write_text(text,encoding='utf-8');os.chmod(temp,0o600);temp.replace(path)
             if revision:
                 with db.connect() as c:c.execute('DELETE FROM archive_dirty WHERE day=? AND revision=?',(day,revision[0]))
         return list_files()
@@ -53,7 +53,7 @@ def recover_local_backups():
     """Recover already-collected daily versions without changing live records."""
     recovered=0;purged=db.purged_ids()
     for path in sorted((db.DATA/'backups').glob('*/before.sqlite')):
-        with sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True) as source:
+        with sqlite3.connect(path.resolve().as_uri()+'?mode=ro',uri=True,factory=db.ClosingConnection) as source:
             rows=source.execute('SELECT day,id,kind,updated,body FROM records').fetchall()
         with db.connect() as c:
             for row in rows:

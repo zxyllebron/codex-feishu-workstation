@@ -14,5 +14,10 @@
   "excluded_thread_ids": [],
   "morning": "09:00",
   "evening": "17:00",
-  "schedule_enabled": true
+  "schedule_enabled": true,
+  "gmail_enabled": false,
+  "applications_enabled": false,
+  "application_roots": [],
+  "connector_inbox": "./data/connector-inbox",
+  "codex_transport": "default"
 }

@@ -16,10 +16,10 @@ patterns=[r'/home/(?!example(?:/|\b))[A-Za-z0-9_-]+/',r'(?:oc_|ou_)[a-f0-9]{30,}
           r'-----BEGIN [A-Z ]*PRIVATE KEY-----\n[A-Za-z0-9+/=\n]{40,}']
 for p in files:
     rel=p.relative_to(ROOT)
-    if rel.parts[0] in ('data','dist') or p.name in ('config.json','auth.json') or p.suffix in ('.sqlite','.db','.log'):
+    if rel.parts[0] in ('data','dist') or p.name in ('config.json','auth.json','runtime.local.json','LOCAL-DEPLOYMENT.md','sync_personal.py') or p.suffix in ('.sqlite','.db','.log'):
         issues.append(str(rel)+': private/runtime file included');continue
     if p.suffix in ('.png','.jpg','.zip'):continue
-    try:text=p.read_text()
+    try:text=p.read_text(encoding='utf-8')
     except (UnicodeError,OSError):continue
     for pattern in patterns:
         if re.search(pattern,text):issues.append(str(rel)+': possible private identifier/credential')

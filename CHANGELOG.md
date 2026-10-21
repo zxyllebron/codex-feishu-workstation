@@ -1,5 +1,16 @@
 # Changelog / 更新记录
 
+## 1.1.0 — 2026-10-21
+
+- Rename the product to Mystation; keep the existing repository URL and optional Feishu adapter.
+- Add school-grouped application tracking, separate faculty contacts, cited evidence, and optional sanitized Gmail/portal snapshot imports.
+- Retain completed work on the home page for 24 hours; add right-click editing and reopening without changing completion timestamps on edits.
+- Include native Windows UTF-8, timezone data, SQLite lifecycle and scoped process-cancellation fixes; extend CI to Windows/macOS.
+- Publish generic application configuration, a fictional application demo, snapshot documentation and reusable import helper.
+- Correct Gmail source-link sanitization, threadless-reply matching, and evidence-change detection for metadata-only updates.
+
+更名 Mystation；同步申请分组、快照导入、完成保留与待办编辑回退。所有示例均为虚构数据，不包含作者个人申请、邮件或账号配置。
+
 ## 1.0.1 — 2026-10-16
 
 - Match AskBetter's `English | 简体中文` README navigation with separate language pages.

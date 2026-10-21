@@ -89,7 +89,7 @@ class RecentCodexTests(unittest.TestCase):
     def test_recent_window_reads_all_active_chats_and_excludes_internal_jobs(self):
         with tempfile.TemporaryDirectory() as td:
             folder=Path(td);start,_=sources.day_range(db.today())
-            with sqlite3.connect(folder/'state_5.sqlite') as c:
+            with sqlite3.connect(folder/'state_5.sqlite',factory=db.ClosingConnection) as c:
                 c.execute('CREATE TABLE threads (id,title,cwd,updated_at,rollout_path)')
                 for n,days,cwd in [('recent',2,'/home/example/sdk'),('today',0,'/home/example/other'),('too-old',9,'/home/example/old'),('internal',0,'/home/example/workstation/data/runs/a')]:
                     c.execute('INSERT INTO threads VALUES (?,?,?,?,?)',(n,n,cwd,int((start-timedelta(days=days)).timestamp())+5,'unused'))

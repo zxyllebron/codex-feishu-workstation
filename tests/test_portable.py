@@ -22,7 +22,7 @@ class PortableTests(unittest.TestCase):
             env=config.feishu_env(db.DATA)
         self.assertNotIn('LARK_CHANNEL_CONFIG',env);self.assertNotIn('OPENCLAW_HOME',env)
         self.assertEqual(env['LARKSUITE_CLI_CONFIG_DIR'],str(db.DATA/'feishu-cli'))
-        self.assertEqual((db.DATA/'feishu-cli').stat().st_mode&0o777,0o700)
+        if os.name != 'nt':self.assertEqual((db.DATA/'feishu-cli').stat().st_mode&0o777,0o700)
     def test_no_history_or_memory_is_valid_for_a_new_install(self):
         with patch.object(sources,'CODEX',Path(self.temp.name)/'empty-codex'):
             self.assertEqual(sources.sync_codex(db.today()),{'threads':0,'memories':0,'read_errors':0});self.assertEqual(sources.recent_codex(),[])

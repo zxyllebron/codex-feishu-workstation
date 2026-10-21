@@ -4,7 +4,7 @@
 
 ## 1. 环境与演示
 
-需要 Python 3.11+（含 SQLite 和时区数据）。Linux 为已测试环境；macOS 可前台运行，但本次发布未做实机验收。Windows 使用 WSL2。安装两个外部 CLI 建议使用 Node.js 20+；工作台服务器本身没有 Python 第三方依赖，也不需要编译前端。
+需要 Python 3.11+（含 SQLite 和时区数据）。Linux、macOS、原生 Windows 可前台运行，自动检查使用虚构数据和模拟账号。先运行 `python3 -m pip install -r requirements.txt`，仅 Windows 会安装 `tzdata`。Windows 将命令中的 `python3` 换成 `python`。Node.js 用于安装外部 CLI，网页服务不需要 Node 或前端构建。
 
 下载仓库后在目录内运行：
 
@@ -37,6 +37,10 @@ python3 manage.py doctor
 ```
 
 生成的 `config.json` 已被 Git 忽略。它只放配置，不放账号密码或 token。
+
+飞书可选：设 `feishu_enabled: false` 后无需安装飞书 CLI。申请模式可使用 [config.applications.example.json](../config.applications.example.json) 作为新实例配置，按 [申请快照教程](APPLICATIONS.md) 设置自己的目录与采集器。不要覆盖已有个人配置。`applications_enabled` 开启申请页；`gmail_enabled` 仅表示启用 Gmail 证据展示，不会自动登录或读取邮箱。`application_roots` 默认为空；`connector_inbox` 默认 `./data/connector-inbox`。不安装作者的连接器授权或 Codex 定时巡检。
+
+执行使用 `--ignore-user-config`，请用 `codex exec --help` 确认版本支持。账号沿用自己的登录，模型通过 `codex_model` 显式设置。`codex_transport` 默认 `default`，需要固定 HTTPS 通道时可设 `https`。应用仍会将选取证据发送给模型服务。
 
 | 配置项 | 默认值 | 作用 |
 |---|---|---|

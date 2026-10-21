@@ -178,8 +178,8 @@ def write_export(job):
     folder=db.DATA/'exports'/'feishu'/job['end'][:10];folder.mkdir(parents=True,exist_ok=True,mode=0o700)
     records=sorted(db.evidence_records(job.get('message_keys',[])),key=lambda r:r['updated'],reverse=True)
     for fmt in ('jsonl','md'):
-        path=folder/('messages.'+fmt);temp=path.with_suffix('.tmp');temp.write_text(render_export(records,(job.get('start') or '最早可见历史')+' — '+job['end'],fmt));temp.chmod(0o600);temp.replace(path)
-    (folder/'collection.json').write_text(json.dumps({k:job.get(k) for k in ('id','start','end','status','messages','chats_total','pages','thread_ids')},ensure_ascii=False,indent=2))
+        path=folder/('messages.'+fmt);temp=path.with_suffix('.tmp');temp.write_text(render_export(records,(job.get('start') or '最早可见历史')+' — '+job['end'],fmt),encoding='utf-8');temp.chmod(0o600);temp.replace(path)
+    (folder/'collection.json').write_text(json.dumps({k:job.get(k) for k in ('id','start','end','status','messages','chats_total','pages','thread_ids')},ensure_ascii=False,indent=2),encoding='utf-8')
     return {'jsonl':str(folder/'messages.jsonl'),'markdown':str(folder/'messages.md')}
 
 
@@ -211,5 +211,5 @@ def brief_text(plan):
 
 def write_brief(plan):
     folder=db.DATA/'exports'/'feishu'/plan.get('day',db.today());folder.mkdir(parents=True,exist_ok=True,mode=0o700)
-    path=folder/'brief.md';temp=path.with_suffix('.tmp');temp.write_text(brief_text(plan));temp.chmod(0o600);temp.replace(path)
+    path=folder/'brief.md';temp=path.with_suffix('.tmp');temp.write_text(brief_text(plan),encoding='utf-8');temp.chmod(0o600);temp.replace(path)
     return str(path)
